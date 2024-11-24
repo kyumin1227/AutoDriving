@@ -6,7 +6,7 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/21 22:14:46 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/21 23:24:49 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/11/24 15:58:14 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -17,6 +17,7 @@ import Jetson.GPIO as GPIO
 import time
 import tkinter as tk
 import cv2
+import numpy as np
 import os
 import threading
 import queue
@@ -113,6 +114,28 @@ def stop_motors():
     GPIO.output(IN4_PIN, GPIO.LOW)
     pwm_dc.ChangeDutyCycle(0)  # 속도를 0으로 설정 (정지)
 
+def filter_white_yellow(image):
+    # 이미지를 HSV 색 공간으로 변환
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # 흰색 범위 설정
+    lower_white = np.array([0, 0, 200])   # 낮은 경계 (H, S, V)
+    upper_white = np.array([180, 25, 255])  # 높은 경계
+    white_mask = cv2.inRange(hsv, lower_white, upper_white)
+
+    # 노란색 범위 설정 (더 짙고 어두운 노란색 포함)
+    lower_yellow = np.array([10, 30, 30])  # 낮은 경계 (H, S, V)
+    upper_yellow = np.array([40, 255, 255])  # 높은 경계 (H, S, V)
+    yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+    # 흰색과 노란색을 합친 마스크
+    combined_mask = cv2.bitwise_or(white_mask, yellow_mask)
+
+    # 원본 이미지에서 흰색과 노란색만 강조
+    result = cv2.bitwise_and(image, image, mask=combined_mask)
+
+    return result
+
 # 이미지 저장 작업 쓰레드
 def capture_and_save_image_task():
     while True:
@@ -127,6 +150,20 @@ def capture_and_save_image_task():
             cap.grab()
             ret, frame = cap.read()
             if ret:
+                
+                # 이미지 크기
+                h, w = frame.shape[:2]
+
+                # 아래에서 3분의 2 영역 선택
+                y1 = h // 3  # 높이의 1/3 지점
+                y2 = h       # 전체 높이
+                roi = frame[y1:y2, :]  # ROI 설정 (너비 전체 사용)
+
+                # 60 x 60 사이즈로 리사이징
+                resized = cv2.resize(roi, (60, 60))
+
+                mask = filter_white_yellow(resized)
+
                 # 디렉토리 구조: speed_{속도}/angle_{각도}/
                 speed_dir = os.path.join(base_dir, f"speed_{speed}")
                 angle_dir = os.path.join(speed_dir, f"angle_{angle}")
@@ -134,7 +171,7 @@ def capture_and_save_image_task():
 
                 # 이미지 파일 저장
                 filename = os.path.join(angle_dir, f"{count:04d}.jpg")
-                cv2.imwrite(filename, frame)
+                cv2.imwrite(filename, mask)
                 print(f"Captured: {filename}")
 
         except Exception as e:
