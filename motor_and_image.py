@@ -6,7 +6,7 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/21 22:14:46 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/24 15:58:14 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/11/29 15:48:37 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,6 +32,11 @@ IN2_PIN = 15  # 모터 1, IN2
 IN3_PIN = 16  # 모터 2, IN3
 IN4_PIN = 18  # 모터 2, IN4
 
+DEFAULT_ANGLE = 100 # 중립 각도
+DEFAULT_SPEED = 30  # 초기 속도
+ANGLE_STEP = 15 # 각도 증가/감소 단위
+SPEED_STEP = 30  # 속도 증가/감소 단위
+
 # GPIO 설정
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
@@ -51,12 +56,10 @@ pwm_dc = GPIO.PWM(DC_PIN, 100)
 pwm_dc.start(0)  # 초기 속도 0%
 
 # 현재 속도 변수
-current_speed = 70  # 초기 속도 (70%)
-speed_step = 30  # 속도 증가/감소 단위
+current_speed = DEFAULT_SPEED
 
 # 현재 각도 변수
-current_angle = 100 # 초기 각도 (100)
-angle_step = 15 # 각도 증가/감소 단위
+current_angle = DEFAULT_ANGLE
 
 # 라벨링 데이터를 저장할 디렉토리 설정
 base_dir = 'captured_data'
@@ -74,10 +77,10 @@ task_queue = queue.Queue()
 
 # 서보 모터 각도 조정 함수
 def set_servo_angle(angle):
-    if angle > 130:
+    if angle > DEFAULT_ANGLE + ANGLE_STEP * 2:
         print("Max angle reached")
         return
-    if angle < 70:
+    if angle < DEFAULT_ANGLE - ANGLE_STEP * 2:
         print("Min angle reached")
         return
     global current_angle
@@ -193,8 +196,8 @@ def request_capture():
 # 속도 증가 함수 (F 키)
 def increase_speed():
     global current_speed
-    if current_speed + speed_step <= 100:
-        current_speed += speed_step
+    if current_speed + SPEED_STEP <= 100:
+        current_speed += SPEED_STEP
         print("Increased speed to:", current_speed)
         # 현재 전진 또는 후진 상태의 경우 속도 업데이트
         if key_pressed['w'] or key_pressed['s']:
@@ -205,8 +208,8 @@ def increase_speed():
 # 속도 감소 함수 (G 키)
 def decrease_speed():
     global current_speed
-    if current_speed - speed_step >= 40:
-        current_speed -= speed_step
+    if current_speed - SPEED_STEP >= SPEED_STEP:
+        current_speed -= SPEED_STEP
         print("Decreased speed to:", current_speed)
         # 현재 전진 또는 후진 상태의 경우 속도 업데이트
         if key_pressed['w'] or key_pressed['s']:
@@ -222,9 +225,9 @@ key_pressed = {
 
 def on_key_press(event):
     if event.keysym == 'a':
-        set_servo_angle(current_angle - angle_step)
+        set_servo_angle(current_angle - ANGLE_STEP)
     elif event.keysym == 'd':
-        set_servo_angle(current_angle + angle_step)
+        set_servo_angle(current_angle + ANGLE_STEP)
     if event.keysym == 'w':
         key_pressed['w'] = True
     elif event.keysym == 's':
@@ -269,7 +272,7 @@ check_keys()
 root.mainloop()
 
 # 프로그램 종료 시 GPIO 정리
-set_servo_angle(100)
+set_servo_angle(DEFAULT_ANGLE)
 pwm_dc.stop()
 GPIO.cleanup()
 cap.release()

@@ -109,7 +109,9 @@ def handle_motor(data_queue):
         try:
             # 큐에서 최신 값만 가져오기
             while not data_queue.empty():
-                angle_key = data_queue.get(timeout = 0.5)
+                angle_key = data_queue.get_nowait()  # 큐에서 값을 가져오되, 비우기
+                
+            angle_key = data_queue.get(timeout = 0.5)
 
             print("받은 값", angle_key)
             

@@ -129,7 +129,19 @@ while True:
     if not pause:
         data_queue.put(predicted_angle)
 
+    # 예측 결과 표시
+    cv2.putText(
+        roi,
+        f"Predicted Angle: {predicted_angle}",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 255, 0),
+        2
+    )
+
     cv2.imshow("Live Prediction", filtered_frame)
+    cv2.imshow("Original", roi)
 
     key = cv2.waitKey(1) & 0xFF
 
