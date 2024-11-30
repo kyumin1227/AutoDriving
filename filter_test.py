@@ -6,7 +6,7 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/24 14:26:25 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/24 15:27:39 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/11/30 18:51:33 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -28,8 +28,15 @@ def filter_white_yellow(image):
     upper_yellow = np.array([40, 255, 255])  # 높은 경계 (H, S, V)
     yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
+    # 검은색 범위 설정
+    lower_black = np.array([0, 0, 50])
+    upper_black = np.array([180, 255, 50])  # 낮은 밝기 범위
+    black_mask = cv2.inRange(hsv, lower_black, upper_black)
+
     # 흰색과 노란색을 합친 마스크
     combined_mask = cv2.bitwise_or(white_mask, yellow_mask)
+
+    combined_mask = cv2.bitwise_or(combined_mask, black_mask)
 
     # 원본 이미지에서 흰색과 노란색만 강조
     result = cv2.bitwise_and(image, image, mask=combined_mask)

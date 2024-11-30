@@ -6,6 +6,7 @@ import numpy as np
 import threading
 import autodriving_motor as motor
 import queue
+import os
 
 # CNN 모델 정의 (학습할 때 사용한 모델과 동일)
 class SimpleCNN(torch.nn.Module):
@@ -32,7 +33,7 @@ class SimpleCNN(torch.nn.Module):
         return x
 
 # 모델 로드
-model_path = "simple_cnn_speed_100_rgb.pth"
+model_path = "simple_cnn_speed_100_rgb_3.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = SimpleCNN(num_classes=5).to(device)
@@ -48,6 +49,13 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # 정규화
 ])
+
+# 저장 디렉토리 설정
+save_dir = "predict_error"
+os.makedirs(save_dir, exist_ok=True)
+
+# 파일 저장 인덱스
+save_index = 0
 
 # 실시간 예측 함수
 def predict_frame(frame):
@@ -156,6 +164,12 @@ while True:
     elif key == 84:
         print("아래쪽 화살표")
         data_queue.put("down")
+    # s 키를 눌러 filtered_frame 저장
+    elif key == ord('s'):
+        save_path = os.path.join(save_dir, f"filtered_frame_{save_index:04d}.jpg")
+        cv2.imwrite(save_path, filtered_frame)
+        print(f"Saved filtered frame to {save_path}")
+        save_index += 1
     # 'q' 키를 누르면 종료
     elif key == ord('q'):
         data_queue.put("stop")

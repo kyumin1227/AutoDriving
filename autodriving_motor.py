@@ -22,6 +22,9 @@ GPIO.setup(IN2_PIN, GPIO.OUT)
 GPIO.setup(IN3_PIN, GPIO.OUT)
 GPIO.setup(IN4_PIN, GPIO.OUT)
 
+DEFAULT_ANGLE = 100
+ANGLE_STEP = 15
+
 # 서보 모터 50Hz, PWM 초기화
 pwm_servo = GPIO.PWM(SERVO_PIN, 50)
 pwm_servo.start(7.5)  # 초기 중립 각도 (100도)
@@ -35,15 +38,14 @@ current_speed = 30  # 초기 속도 (30%)
 speed_step = 1  # 속도 증가/감소 단위
 
 # 현재 각도 변수
-current_angle = 100 # 초기 각도 (100)
-angle_step = 15 # 각도 증가/감소 단위
+current_angle = DEFAULT_ANGLE # 초기 각도 (100)
 
 # 서보 모터 각도 조정 함수
 def set_servo_angle(angle):
-    if angle > 130:
+    if angle > DEFAULT_ANGLE + ANGLE_STEP * 2:
         print("Max angle reached")
         return
-    if angle < 70:
+    if angle < DEFAULT_ANGLE - ANGLE_STEP * 2:
         print("Min angle reached")
         return
     global current_angle
@@ -103,7 +105,7 @@ def decrease_speed():
         print("Min speed reached")
 
 def handle_motor(data_queue):
-    angle_mapping = {0: 70, 1: 85, 2: 100, 3: 115, 4: 130}
+    angle_mapping = {0: DEFAULT_ANGLE - ANGLE_STEP * 2, 1: DEFAULT_ANGLE - ANGLE_STEP, 2: DEFAULT_ANGLE, 3: DEFAULT_ANGLE + ANGLE_STEP, 4: DEFAULT_ANGLE + ANGLE_STEP * 2}
 
     while True:
         try:

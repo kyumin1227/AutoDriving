@@ -6,7 +6,7 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/21 22:14:46 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/29 15:48:37 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/11/30 20:38:29 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -32,10 +32,10 @@ IN2_PIN = 15  # 모터 1, IN2
 IN3_PIN = 16  # 모터 2, IN3
 IN4_PIN = 18  # 모터 2, IN4
 
-DEFAULT_ANGLE = 100 # 중립 각도
+DEFAULT_ANGLE = 102 # 중립 각도
 DEFAULT_SPEED = 30  # 초기 속도
-ANGLE_STEP = 15 # 각도 증가/감소 단위
-SPEED_STEP = 30  # 속도 증가/감소 단위
+ANGLE_STEP = 25 # 각도 증가/감소 단위
+SPEED_STEP = 1  # 속도 증가/감소 단위
 
 # GPIO 설정
 GPIO.setwarnings(False)
@@ -64,6 +64,9 @@ current_angle = DEFAULT_ANGLE
 # 라벨링 데이터를 저장할 디렉토리 설정
 base_dir = 'captured_data'
 os.makedirs(base_dir, exist_ok=True)
+
+# 최근 저장된 파일 경로를 저장하는 리스트
+recent_files = []
 
 # 카메라 설정
 cap = cv2.VideoCapture(0)  # 0번 카메라
@@ -177,8 +180,28 @@ def capture_and_save_image_task():
                 cv2.imwrite(filename, mask)
                 print(f"Captured: {filename}")
 
+                # 최근 파일 경로 업데이트
+                recent_files.append(filename)
+                if len(recent_files) > 10:
+                    recent_files.pop(0)  # 최근 10개만 유지
+
         except Exception as e:
             print(f"Error saving image: {e}")
+
+# 최근 파일 삭제 함수
+def delete_recent_files():
+    global recent_files
+    if recent_files:
+        print("Deleting last 10 files...")
+        for file_path in reversed(recent_files):
+            try:
+                os.remove(file_path)
+                print(f"Deleted: {file_path}")
+            except FileNotFoundError:
+                print(f"File not found: {file_path}")
+        recent_files.clear()
+    else:
+        print("No files to delete.")
 
 # 쓰레드 시작
 image_thread = threading.Thread(target=capture_and_save_image_task)
@@ -236,6 +259,8 @@ def on_key_press(event):
         increase_speed()  # F 키로 속도 증가
     elif event.keysym == 'g':
         decrease_speed()  # G 키로 속도 감소
+    elif event.keysym == 'BackSpace':
+        delete_recent_files()  # Backspace 키로 최근 파일 삭제
     if event.keysym == "Escape":
         root.quit()
 
