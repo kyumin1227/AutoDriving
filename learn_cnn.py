@@ -23,7 +23,7 @@ class CustomDataset(Dataset):
         self.labels = []
         
          # 라벨 매핑 정의 (70 -> 0, 85 -> 1, ...)
-        label_mapping = {72: 0, 87: 1, 102: 2, 117: 3, 132: 4, 102_100: 5}
+        label_mapping = {72: 0, 87: 1, 102: 2, 117: 3, 132: 4, 102100: 5}
 
         for angle_folder in sorted(os.listdir(root_dir)):
             angle_path = os.path.join(root_dir, angle_folder)
@@ -85,7 +85,7 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # CNN 모델 정의
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes=5):
+    def __init__(self, num_classes=6):
         super(SimpleCNN, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),  # 3채널 입력

@@ -1,0 +1,8 @@
+*.pth
+.DS_Store
+
+# WandB
+WandB/run-*/*
+debug.log
+debug-internal.log
+latest-run

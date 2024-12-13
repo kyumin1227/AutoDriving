@@ -6,7 +6,7 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/21 22:14:46 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/30 20:38:29 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/12/13 19:04:18 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -34,8 +34,8 @@ IN4_PIN = 18  # 모터 2, IN4
 
 DEFAULT_ANGLE = 102 # 중립 각도
 DEFAULT_SPEED = 30  # 초기 속도
-ANGLE_STEP = 25 # 각도 증가/감소 단위
-SPEED_STEP = 1  # 속도 증가/감소 단위
+ANGLE_STEP = 15 # 각도 증가/감소 단위
+SPEED_STEP = 70  # 속도 증가/감소 단위
 
 # GPIO 설정
 GPIO.setwarnings(False)
@@ -231,7 +231,7 @@ def increase_speed():
 # 속도 감소 함수 (G 키)
 def decrease_speed():
     global current_speed
-    if current_speed - SPEED_STEP >= SPEED_STEP:
+    if current_speed - SPEED_STEP >= 0:
         current_speed -= SPEED_STEP
         print("Decreased speed to:", current_speed)
         # 현재 전진 또는 후진 상태의 경우 속도 업데이트
