@@ -7,7 +7,7 @@ import threading
 import autodriving_motor_100 as motor
 import queue
 import os
-import wandb
+# import wandb
 
 # CNN 모델 정의 (학습할 때 사용한 모델과 동일)
 class SimpleCNN(torch.nn.Module):
@@ -33,10 +33,13 @@ class SimpleCNN(torch.nn.Module):
         x = self.classifier(x)
         return x
 
-# 모델 로드
-run = wandb.init()
-artifact = run.use_artifact('kyumin1227-yeungjin-college/Autodriving/simple_cnn_speed_30_and_100_model:v0', type='model')
-artifact_dir = artifact.download()
+# 모델 로드 (WandB)
+# run = wandb.init()
+# artifact = run.use_artifact('kyumin1227-yeungjin-college/Autodriving/simple_cnn_speed_30_and_100_model:v0', type='model')
+# artifact_dir = artifact.download()
+
+# 모델 로드 (로컬)
+artifact_dir = "simple_cnn_speed_30_and_100_model.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = SimpleCNN(num_classes=6).to(device)
@@ -135,14 +138,14 @@ def capture_and_save_image_task():
             os.makedirs(angle_dir, exist_ok=True)
 
             # 이미지 파일 저장
-            filename = os.path.join(angle_dir, f"{count:04d}.jpg")
+            filename = os.path.join(angle_dir, f"predict_{count:04d}.jpg")
             cv2.imwrite(filename, mask_image)
             print(f"Captured: {filename}")
 
             # 최근 파일 경로 업데이트
             recent_files.append(filename)
-            if len(recent_files) > 10:
-                recent_files.pop(0)  # 최근 10개만 유지
+            if len(recent_files) > 20:
+                recent_files.pop(0)  # 최근 20개만 유지
 
         except Exception as e:
             print(f"Error saving image: {e}")
@@ -151,7 +154,7 @@ def capture_and_save_image_task():
 def move_recent_files_to_error():
     global recent_files
     if recent_files:
-        print("Moving last 10 files to predict_error folder...")
+        print("Moving last 20 files to predict_error folder...")
         for file_path in reversed(recent_files):
             try:
                 # 이동 대상 경로 생성
@@ -244,6 +247,7 @@ while True:
         save_index += 1
     elif key == 8:
         move_recent_files_to_error()  # Backspace 키로 최근 파일 이동
+        pause = True
     # 'q' 키를 누르면 종료
     elif key == ord('q'):
         data_queue.put("stop")

@@ -6,13 +6,18 @@
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/24 14:26:25 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/11/30 18:51:33 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/12/14 18:04:25 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 import cv2
 import numpy as np
 import time
+import os
+
+# 저장 디렉토리 설정
+save_dir = "ppt"
+os.makedirs(save_dir, exist_ok=True)
 
 def filter_white_yellow(image):
     # 이미지를 HSV 색 공간으로 변환
@@ -35,20 +40,22 @@ def filter_white_yellow(image):
 
     # 흰색과 노란색을 합친 마스크
     combined_mask = cv2.bitwise_or(white_mask, yellow_mask)
-
     combined_mask = cv2.bitwise_or(combined_mask, black_mask)
 
     # 원본 이미지에서 흰색과 노란색만 강조
     result = cv2.bitwise_and(image, image, mask=combined_mask)
 
-    return result, combined_mask
+    # 노란색 영역만 강조
+    yellow_highlight = cv2.bitwise_and(image, image, mask=yellow_mask)
+
+    return result, white_mask, yellow_mask, combined_mask, yellow_highlight
 
 # 실시간 영상 처리
 cap = cv2.VideoCapture(0)  # 0번 카메라 연결
 
 # 해상도 설정
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기를 1로 설정
 cap.set(cv2.CAP_PROP_FPS, 10)  # FPS 조정
 
@@ -61,7 +68,9 @@ if not cap.isOpened():
     exit()
 
 print("Press 'q' to quit.")
+print("Press 's' to save all frames.")
 last_time = time.time()
+save_index = 0
 
 while True:
     current_time = time.time()
@@ -88,15 +97,31 @@ while True:
     resized = cv2.resize(roi, (60, 60))
 
     # 흰색과 노란색 필터 적용
-    filtered_frame, mask = filter_white_yellow(resized)
+    filtered_frame, white_mask, yellow_mask, combined_mask, yellow_highlight = filter_white_yellow(resized)
 
     # 결과 표시
     cv2.imshow("Original Frame", frame)
     cv2.imshow("Filtered Frame (Bottom 2/3)", filtered_frame)
-    cv2.imshow("Mask (Bottom 2/3)", mask)
+    cv2.imshow("Mask (Bottom 2/3)", combined_mask)
+    cv2.imshow("Yellow Highlight", yellow_highlight)
+
+    key = cv2.waitKey(1) & 0xFF
+
+    # 's' 키를 누르면 모든 이미지를 저장
+    if key == ord('s'):
+        cv2.imwrite(os.path.join(save_dir, f"original_{save_index:04d}.jpg"), frame)
+        cv2.imwrite(os.path.join(save_dir, f"roi_{save_index:04d}.jpg"), roi)
+        cv2.imwrite(os.path.join(save_dir, f"resized_{save_index:04d}.jpg"), resized)
+        cv2.imwrite(os.path.join(save_dir, f"filtered_frame_{save_index:04d}.jpg"), filtered_frame)
+        cv2.imwrite(os.path.join(save_dir, f"white_mask_{save_index:04d}.jpg"), white_mask)
+        cv2.imwrite(os.path.join(save_dir, f"yellow_mask_{save_index:04d}.jpg"), yellow_mask)
+        cv2.imwrite(os.path.join(save_dir, f"combined_mask_{save_index:04d}.jpg"), combined_mask)
+        cv2.imwrite(os.path.join(save_dir, f"yellow_highlight_{save_index:04d}.jpg"), yellow_highlight)
+        print(f"Saved all frames with index {save_index}")
+        save_index += 1
 
     # 'q' 키를 누르면 종료
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
 
     # 마지막 프레임 처리 시간을 갱신
