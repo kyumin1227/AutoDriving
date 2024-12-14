@@ -6,3 +6,5 @@ WandB/run-*/*
 debug.log
 debug-internal.log
 latest-run
+
+!simple_cnn_speed_30_and_100_model.pth

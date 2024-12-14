@@ -106,10 +106,10 @@ motor_thread = threading.Thread(target=motor.handle_motor, kwargs={"data_queue":
 motor_thread.start()
 
 # OpenCV로 실시간 영상 처리
-cap = cv2.VideoCapture(0)  # 0번 카메라
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)  # 0번 카메라
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-cap.set(cv2.CAP_PROP_FPS, 10)
+cap.set(cv2.CAP_PROP_FPS, 60)
 
 if not cap.isOpened():
     print("Error: Unable to access the camera.")

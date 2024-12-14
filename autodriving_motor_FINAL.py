@@ -111,6 +111,8 @@ def set_speed(speed):
 def handle_motor(data_queue):
     angle_mapping = {0: DEFAULT_ANGLE - ANGLE_STEP * 2, 1: DEFAULT_ANGLE - ANGLE_STEP, 2: DEFAULT_ANGLE, 3: DEFAULT_ANGLE + ANGLE_STEP, 4: DEFAULT_ANGLE + ANGLE_STEP * 2, 5: None}
 
+    prev_angle = None
+
     while True:
         try:
             # 큐에서 최신 값만 가져오기
@@ -120,8 +122,13 @@ def handle_motor(data_queue):
             angle_key = data_queue.get(timeout = 0.5)
 
             print("받은 값", angle_key)
+
+            # 이전과 같으면 패스
+            if angle_key == prev_angle:
+                continue
             
             if angle_key in angle_mapping:
+                prev_angle = angle_key
                 if angle_key == 5:
                     set_servo_angle(DEFAULT_ANGLE)
                     set_speed(100)
