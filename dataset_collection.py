@@ -1,18 +1,18 @@
 # **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
-#    motor_and_image.py                                 :+:      :+:    :+:    #
+#    dataset_collection.py                              :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
 #    By: kyumin1227 <kyumin12271227@gmail.com>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/11/21 22:14:46 by kyumin1227        #+#    #+#              #
-#    Updated: 2024/12/13 19:04:18 by kyumin1227       ###   ########.fr        #
+#    Updated: 2024/12/16 02:39:41 by kyumin1227       ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
-# 서보 모터와 DC 모터 테스트 코드
-# サーボモーターとDCモーターのテストコード
- 
+# 데이터셋 수집 코드
+# データを収集するコード
+
 import Jetson.GPIO as GPIO
 import time
 import tkinter as tk
@@ -68,6 +68,10 @@ os.makedirs(base_dir, exist_ok=True)
 # 최근 저장된 파일 경로를 저장하는 리스트
 recent_files = []
 
+# 별도 저장 폴더 설정
+error_dir = 'error_data'
+os.makedirs(error_dir, exist_ok=True)
+
 # 카메라 설정
 cap = cv2.VideoCapture(0)  # 0번 카메라
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기를 1로 설정
@@ -77,6 +81,13 @@ cap.set(cv2.CAP_PROP_FPS, 30)  # FPS 조정
 
 # 작업 큐 생성
 task_queue = queue.Queue()
+
+# 플래그 설정
+saving_enabled = False  # 데이터 저장 활성화 여부
+capture_buffer = []  # 최대 200장까지 버퍼링
+
+# 사진 번호
+image_count = 0
 
 # 서보 모터 각도 조정 함수
 def set_servo_angle(angle):
@@ -156,7 +167,7 @@ def capture_and_save_image_task():
             cap.grab()
             ret, frame = cap.read()
             if ret:
-                
+
                 # 이미지 크기
                 h, w = frame.shape[:2]
 
@@ -176,45 +187,49 @@ def capture_and_save_image_task():
                 os.makedirs(angle_dir, exist_ok=True)
 
                 # 이미지 파일 저장
-                filename = os.path.join(angle_dir, f"{count:04d}.jpg")
+                filename = os.path.join(angle_dir, f"c_{count:04d}.jpg")
                 cv2.imwrite(filename, mask)
                 print(f"Captured: {filename}")
 
-                # 최근 파일 경로 업데이트
-                recent_files.append(filename)
-                if len(recent_files) > 10:
-                    recent_files.pop(0)  # 최근 10개만 유지
+                cv2.imshow("Now", mask)
+
+                # 캡처 버퍼에 추가
+                capture_buffer.append(filename)
+
+                # 200장을 넘으면 자동으로 첫 번째 파일 삭제
+                if len(capture_buffer) > 200:
+                    old_file = capture_buffer.pop(0)
+                    os.remove(old_file)
 
         except Exception as e:
             print(f"Error saving image: {e}")
 
-# 최근 파일 삭제 함수
-def delete_recent_files():
-    global recent_files
-    if recent_files:
-        print("Deleting last 10 files...")
-        for file_path in reversed(recent_files):
+# 최근 파일 이동 함수
+def move_recent_files_to_error():
+    global capture_buffer
+    if capture_buffer:
+        print("Moving captured files to error_data folder...")
+        for file_path in capture_buffer:
             try:
-                os.remove(file_path)
-                print(f"Deleted: {file_path}")
+                base_name = os.path.basename(file_path)
+                error_path = os.path.join(error_dir, base_name)
+                os.rename(file_path, error_path)
+                print(f"Moved: {file_path} -> {error_path}")
             except FileNotFoundError:
                 print(f"File not found: {file_path}")
-        recent_files.clear()
+        capture_buffer.clear()
     else:
-        print("No files to delete.")
+        print("No files to move.")
 
-# 쓰레드 시작
-image_thread = threading.Thread(target=capture_and_save_image_task)
-image_thread.start()
-
-# 캡처 요청 함수
-capture_count = 0
-def request_capture():
-    global capture_count
-    
-    # 작업 큐에 요청 추가
-    task_queue.put((current_speed, current_angle, capture_count))
-    capture_count += 1
+# 키 입력 처리 및 데이터 저장 활성화/비활성화
+def toggle_saving():
+    global saving_enabled
+    global capture_buffer
+    saving_enabled = not saving_enabled
+    state = "enabled" if saving_enabled else "disabled"
+    if not saving_enabled:
+        capture_buffer.clear()
+    print(f"Data saving is now {state}.")
 
 # 속도 증가 함수 (F 키)
 def increase_speed():
@@ -259,8 +274,11 @@ def on_key_press(event):
         increase_speed()  # F 키로 속도 증가
     elif event.keysym == 'g':
         decrease_speed()  # G 키로 속도 감소
+    if event.keysym == 'space':
+        toggle_saving()  # Space 키로 데이터 저장 활성화/비활성화
     elif event.keysym == 'BackSpace':
-        delete_recent_files()  # Backspace 키로 최근 파일 삭제
+        move_recent_files_to_error()  # Backspace 키로 캡처된 파일 이동
+        toggle_saving()
     if event.keysym == "Escape":
         root.quit()
 
@@ -271,12 +289,14 @@ def on_key_release(event):
         key_pressed['s'] = False
 
 def check_keys(): 
+    global image_count
     if key_pressed['w']:
         move_forward() 
-        request_capture()  # 이미지 저장 요청
+        if saving_enabled:
+            task_queue.put((current_speed, current_angle, image_count))  # 이미지 저장 요청
+            image_count += 1
     elif key_pressed['s']:
         move_backward()
-        request_capture()  # 이미지 저장 요청
     else:
         stop_motors()
 
@@ -285,6 +305,10 @@ def check_keys():
 
 # tkinter GUI 설정
 root = tk.Tk()
+
+# 쓰레드 시작
+image_thread = threading.Thread(target=capture_and_save_image_task)
+image_thread.start()
 
 # 키보드 이벤트 바인딩
 root.bind('<KeyPress>', on_key_press)
@@ -305,4 +329,4 @@ cv2.destroyAllWindows()
 
 # 쓰레드 종료 신호 보내기
 task_queue.put(None)
-image_thread.join()
+threading.Thread(target=capture_and_save_image_task).join()

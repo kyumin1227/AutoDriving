@@ -1,3 +1,5 @@
+# 데이터셋을 비교하는 코드
+
 import os
 
 def get_dataset_structure(root_dir):

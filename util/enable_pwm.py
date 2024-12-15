@@ -1,3 +1,5 @@
+# pwm 활성화 코드
+
 import os
 
 def enable_pwm(pin, addr1, value1, addr2, value2):

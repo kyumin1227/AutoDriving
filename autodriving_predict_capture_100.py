@@ -1,3 +1,5 @@
+# 자율 주행 (속도 100 포함) & 데이터셋 촬영
+
 import cv2
 import torch
 from torchvision import transforms

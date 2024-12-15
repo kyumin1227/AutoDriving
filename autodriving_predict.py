@@ -1,3 +1,5 @@
+# 자율 주행 (속도 100)
+
 import cv2
 import torch
 from torchvision import transforms
@@ -6,11 +8,10 @@ import numpy as np
 import threading
 import autodriving_motor as motor
 import queue
-import os
 
 # CNN 모델 정의 (학습할 때 사용한 모델과 동일)
 class SimpleCNN(torch.nn.Module):
-    def __init__(self, num_classes=5):
+    def __init__(self, num_classes=6):
         super(SimpleCNN, self).__init__()
         self.features = torch.nn.Sequential(
             torch.nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
@@ -32,20 +33,16 @@ class SimpleCNN(torch.nn.Module):
         x = self.classifier(x)
         return x
 
-# 모델 로드
-model_path = "simple_cnn_speed_100_rgb_3.pth"
+# 모델 로드 (로컬)
+artifact_dir = "simple_cnn_speed_30_and_100_model.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = SimpleCNN(num_classes=5).to(device)
-model.load_state_dict(torch.load(model_path, map_location=device))
+model = SimpleCNN(num_classes=6).to(device)
+model.load_state_dict(torch.load(artifact_dir, map_location=device))
 model.eval()  # 평가 모드로 전환
 
 # 예측 값을 넘길 queue
 data_queue = queue.Queue()
-# 촬영 값을 넘길 queue
-task_queue = queue.Queue()
-
-recent_files = []
 
 # 데이터 변환 설정 (학습 시 사용한 변환과 동일)
 transform = transforms.Compose([
@@ -53,13 +50,6 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # 정규화
 ])
-
-# 저장 디렉토리 설정
-save_dir = "predict_error"
-os.makedirs(save_dir, exist_ok=True)
-
-# 파일 저장 인덱스
-save_index = 0
 
 # 실시간 예측 함수
 def predict_frame(frame):
@@ -94,82 +84,22 @@ def filter_white_yellow(image):
     # 원본 이미지에서 흰색과 노란색만 강조
     result = cv2.bitwise_and(image, image, mask=combined_mask)
 
-    return result, combined_mask
+    return result
 
 motor_thread = threading.Thread(target=motor.handle_motor, kwargs={"data_queue": data_queue})
 motor_thread.start()
 
 # OpenCV로 실시간 영상 처리
-cap = cv2.VideoCapture(0)  # 0번 카메라
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)  # 0번 카메라
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-cap.set(cv2.CAP_PROP_FPS, 10)
+cap.set(cv2.CAP_PROP_FPS, 60)
 
 if not cap.isOpened():
     print("Error: Unable to access the camera.")
     exit()
 
-angle_list = (70, 85, 100, 115, 130)
-base_dir = "predict_capture"
-SPEED = 40
-
-# 이미지 저장 작업 쓰레드
-def capture_and_save_image_task():
-    while True:
-        try:
-            # 큐에서 작업 가져오기
-            task = task_queue.get()
-            if task is None:  # None이면 종료 신호
-                break
-
-            mask_image, angle, count = task
-
-            angle = angle_list[angle]
-
-            # 디렉토리 구조: speed_{속도}/angle_{각도}/
-            speed_dir = os.path.join(base_dir, f"speed_{SPEED}")
-            angle_dir = os.path.join(speed_dir, f"angle_{angle}")
-            os.makedirs(angle_dir, exist_ok=True)
-
-            # 이미지 파일 저장
-            filename = os.path.join(angle_dir, f"{count:04d}.jpg")
-            cv2.imwrite(filename, mask_image)
-            print(f"Captured: {filename}")
-
-            # 최근 파일 경로 업데이트
-            recent_files.append(filename)
-            if len(recent_files) > 10:
-                recent_files.pop(0)  # 최근 10개만 유지
-
-        except Exception as e:
-            print(f"Error saving image: {e}")
-
-# 최근 파일 이동 함수
-def move_recent_files_to_error():
-    global recent_files
-    if recent_files:
-        print("Moving last 10 files to predict_error folder...")
-        for file_path in reversed(recent_files):
-            try:
-                # 이동 대상 경로 생성
-                base_name = os.path.basename(file_path)
-                error_path = os.path.join(save_dir, base_name)
-                
-                # 파일 이동
-                os.rename(file_path, error_path)
-                print(f"Moved: {file_path} -> {error_path}")
-            except FileNotFoundError:
-                print(f"File not found: {file_path}")
-        recent_files.clear()
-    else:
-        print("No files to move.")
-
-# 쓰레드 시작
-image_thread = threading.Thread(target=capture_and_save_image_task)
-image_thread.start()
-
-# 저장할 사진 번호
-capture_count = 0
+angle_list = (72, 87, 102, 117, 132, 102100)
 
 pause = True
 
@@ -191,7 +121,7 @@ while True:
     # 60 x 60 사이즈로 리사이징
     resized = cv2.resize(roi, (60, 60))
 
-    filtered_frame, mask = filter_white_yellow(resized)
+    filtered_frame = filter_white_yellow(resized)
 
     # 모델로 예측
     predicted_angle = predict_frame(filtered_frame)
@@ -202,23 +132,7 @@ while True:
     if not pause:
         data_queue.put(predicted_angle)
 
-        # 저장할 값 queue에 전송
-        task_queue.put((filtered_frame, predicted_angle, capture_count))
-        capture_count += 1
-
-    # 예측 결과 표시
-    cv2.putText(
-        roi,
-        f"Predicted Angle: {predicted_angle}",
-        (10, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2
-    )
-
     cv2.imshow("Live Prediction", filtered_frame)
-    cv2.imshow("Original", roi)
 
     key = cv2.waitKey(1) & 0xFF
 
@@ -233,14 +147,6 @@ while True:
     elif key == 84:
         print("아래쪽 화살표")
         data_queue.put("down")
-    # s 키를 눌러 filtered_frame 저장
-    elif key == ord('s'):
-        save_path = os.path.join(save_dir, f"filtered_frame_{save_index:04d}.jpg")
-        cv2.imwrite(save_path, filtered_frame)
-        print(f"Saved filtered frame to {save_path}")
-        save_index += 1
-    elif key == 8:
-        move_recent_files_to_error()  # Backspace 키로 최근 파일 이동
     # 'q' 키를 누르면 종료
     elif key == ord('q'):
         data_queue.put("stop")
@@ -250,4 +156,3 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 motor_thread.join()
-image_thread.join()

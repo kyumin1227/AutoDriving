@@ -1,3 +1,5 @@
+# cnn 모델 학습
+
 import os
 import torch
 import torch.nn as nn
@@ -32,7 +34,7 @@ class CustomDataset(Dataset):
 
             label = int(angle_folder.split('_')[1])
             
-             # 라벨을 0~4로 매핑
+             # 라벨을 0~5로 매핑
             if label in label_mapping:
                 mapped_label = label_mapping[label]
             else:

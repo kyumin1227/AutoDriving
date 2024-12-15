@@ -1,3 +1,5 @@
+# 자율 주행 모터 쓰레드
+
 import Jetson.GPIO as GPIO
 import time
 import queue
@@ -22,7 +24,7 @@ GPIO.setup(IN2_PIN, GPIO.OUT)
 GPIO.setup(IN3_PIN, GPIO.OUT)
 GPIO.setup(IN4_PIN, GPIO.OUT)
 
-DEFAULT_ANGLE = 100
+DEFAULT_ANGLE = 102
 ANGLE_STEP = 15
 
 # 서보 모터 50Hz, PWM 초기화
@@ -34,7 +36,7 @@ pwm_dc = GPIO.PWM(DC_PIN, 100)
 pwm_dc.start(0)  # 초기 속도 0%
 
 # 현재 속도 변수
-current_speed = 30  # 초기 속도 (30%)
+current_speed = 45  # 초기 속도 (45%)
 speed_step = 1  # 속도 증가/감소 단위
 
 # 현재 각도 변수
@@ -62,7 +64,7 @@ def move_forward():
     GPIO.output(IN2_PIN, GPIO.LOW)
     GPIO.output(IN3_PIN, GPIO.HIGH)  # 모터 2 전진
     GPIO.output(IN4_PIN, GPIO.LOW)
-    pwm_dc.ChangeDutyCycle(current_speed)  # 속도 제어
+    # pwm_dc.ChangeDutyCycle(current_speed)  # 속도 제어
 
 # DC 모터 후진 설정 (후진 시 방향 설정)
 def move_backward():
@@ -104,8 +106,14 @@ def decrease_speed():
     else:
         print("Min speed reached")
 
+def set_speed(speed):
+    pwm_dc.ChangeDutyCycle(speed)
+    # print("속도 변경: ", current_speed)
+
 def handle_motor(data_queue):
-    angle_mapping = {0: DEFAULT_ANGLE - ANGLE_STEP * 2, 1: DEFAULT_ANGLE - ANGLE_STEP, 2: DEFAULT_ANGLE, 3: DEFAULT_ANGLE + ANGLE_STEP, 4: DEFAULT_ANGLE + ANGLE_STEP * 2}
+    angle_mapping = {0: DEFAULT_ANGLE - ANGLE_STEP * 2, 1: DEFAULT_ANGLE - ANGLE_STEP, 2: DEFAULT_ANGLE, 3: DEFAULT_ANGLE + ANGLE_STEP, 4: DEFAULT_ANGLE + ANGLE_STEP * 2, 5: None}
+
+    prev_angle = None
 
     while True:
         try:
@@ -116,11 +124,21 @@ def handle_motor(data_queue):
             angle_key = data_queue.get(timeout = 0.5)
 
             print("받은 값", angle_key)
+
+            # 이전과 같으면 패스
+            if angle_key == prev_angle:
+                continue
             
             if angle_key in angle_mapping:
-                angle = angle_mapping[angle_key]
+                prev_angle = angle_key
+                if angle_key == 5:
+                    set_servo_angle(DEFAULT_ANGLE)
+                    set_speed(100)
+                else:
+                    angle = angle_mapping[angle_key]
+                    set_servo_angle(angle)
+                    set_speed(current_speed)
 
-                set_servo_angle(angle)
                 move_forward()
 
             elif angle_key == "up":
