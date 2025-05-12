@@ -8,4 +8,4 @@ debug-internal.log
 latest-run
 artifacts/*
 
-!simple_cnn_speed_30_and_100_model.pth
+!models/*
